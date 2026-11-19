@@ -40,7 +40,11 @@ Projeto 100% desenvolvido no Databricks:
 
 ## Dashboard
 
-![Dashboard — Pontualidade de Voos ANAC](dashboard.png)
+![Visão geral do dashboard — KPIs e rankings por aeroporto](imgs/Dashboard.png)
+
+![Atraso médio por hora prevista de partida — efeito cascata](imgs/Dashboard2.png)
+
+![Companhias — minutos recuperados em voo e pontualidade x cancelamento](imgs/Dashboard3.png)
 
 O dashboard (`Pontualidade de Voos ANAC - voebem 2026.lvdash.json`, abrível como dashboard no Databricks) responde às perguntas de negócio do projeto. O que cada visualização mostra:
 
