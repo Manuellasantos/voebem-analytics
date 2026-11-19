@@ -1,0 +1,1006 @@
+{
+  "datasets": [
+    {
+      "name": "kpis_voos",
+      "displayName": "KPIs de voos",
+      "config": {
+        "version": "1.1",
+        "source": "voebem.gold.obt_voos",
+        "comment": "KPIs gerais do periodo, uma linha por etapa de voo. Criterio de pontualidade 15 minutos.",
+        "measures": [
+          {
+            "name": "voos",
+            "expr": "COUNT(*)",
+            "displayName": "Voos no periodo"
+          },
+          {
+            "name": "pct_partida_pontual",
+            "expr": "100.0 * try_divide(SUM(CASE WHEN partida_pontual THEN 1 ELSE 0 END), SUM(CASE WHEN partida_pontual IS NOT NULL THEN 1 ELSE 0 END))",
+            "displayName": "Partida pontual (%)"
+          },
+          {
+            "name": "pct_cancelados",
+            "expr": "100.0 * SUM(CASE WHEN voo_cancelado THEN 1 ELSE 0 END) / COUNT(*)",
+            "displayName": "Cancelados (%)"
+          },
+          {
+            "name": "atraso_medio_partida_min",
+            "expr": "AVG(atraso_partida_min)",
+            "displayName": "Atraso medio de partida (min)"
+          }
+        ]
+      }
+    },
+    {
+      "name": "aeroportos_atraso",
+      "displayName": "Aeroportos com mais atraso (5.000+ voos)",
+      "config": {
+        "source": "SELECT\n  nome_aeroporto_origem,\n  municipio_origem,\n  uf_origem,\n  COUNT(*) AS voos,\n  ROUND(AVG(atraso_partida_min), 2) AS atraso_medio_min,\n  ROUND(100.0 * try_divide(SUM(CASE WHEN partida_pontual = false THEN 1 ELSE 0 END),\n                           SUM(CASE WHEN partida_pontual IS NOT NULL THEN 1 ELSE 0 END)), 2) AS pct_atrasados\nFROM voebem.gold.obt_voos WHERE pais_origem = 'Brasil' GROUP BY 1, 2, 3 HAVING COUNT(*) >= 5000 ORDER BY pct_atrasados DESC LIMIT 10",
+        "measures": [
+          {
+            "name": "voos",
+            "expr": "SUM(voos)",
+            "displayName": "Voos"
+          },
+          {
+            "name": "atraso_medio_min",
+            "expr": "AVG(atraso_medio_min)",
+            "displayName": "Atraso medio (min)"
+          },
+          {
+            "name": "pct_atrasados",
+            "expr": "AVG(pct_atrasados)",
+            "displayName": "Atraso na partida (%)"
+          }
+        ],
+        "version": "1.1",
+        "comment": "P1 - aeroportos brasileiros de origem com maior percentual de atraso na partida, corte de 5.000 voos.",
+        "dimensions": [
+          {
+            "name": "nome_aeroporto_origem",
+            "expr": "nome_aeroporto_origem",
+            "displayName": "Aeroporto de origem"
+          },
+          {
+            "name": "municipio_origem",
+            "expr": "municipio_origem",
+            "displayName": "Municipio"
+          },
+          {
+            "name": "uf_origem",
+            "expr": "uf_origem",
+            "displayName": "UF"
+          }
+        ]
+      }
+    },
+    {
+      "name": "rotas_sem_recuperacao",
+      "displayName": "Rotas sem recuperação de atraso (2.000+ voos)",
+      "config": {
+        "source": "SELECT\n  rota_municipios,\n  rota_icao,\n  COUNT(*) AS voos,\n  ROUND(AVG(atraso_partida_min), 2) AS atraso_saida_min,\n  ROUND(AVG(atraso_chegada_min), 2) AS atraso_chegada_min,\n  ROUND(AVG(minutos_recuperados), 2) AS recuperados_medio_min\nFROM voebem.gold.obt_voos WHERE minutos_recuperados IS NOT NULL GROUP BY 1, 2 HAVING COUNT(*) >= 2000 ORDER BY recuperados_medio_min ASC LIMIT 10",
+        "measures": [
+          {
+            "name": "voos",
+            "expr": "SUM(voos)",
+            "displayName": "Voos"
+          },
+          {
+            "name": "atraso_saida_min",
+            "expr": "AVG(atraso_saida_min)",
+            "displayName": "Atraso de saida (min)"
+          },
+          {
+            "name": "atraso_chegada_min",
+            "expr": "AVG(atraso_chegada_min)",
+            "displayName": "Atraso de chegada (min)"
+          },
+          {
+            "name": "recuperados_medio_min",
+            "expr": "AVG(recuperados_medio_min)",
+            "displayName": "Minutos recuperados em voo"
+          }
+        ],
+        "version": "1.1",
+        "comment": "P5b - rotas em que a recuperacao de atraso nao acontece (perde tempo no ar), corte de 2.000 voos.",
+        "dimensions": [
+          {
+            "name": "rota_municipios",
+            "expr": "rota_municipios",
+            "displayName": "Rota"
+          },
+          {
+            "name": "rota_icao",
+            "expr": "rota_icao",
+            "displayName": "Rota (ICAO)"
+          }
+        ]
+      }
+    },
+    {
+      "name": "companhias_pontualidade",
+      "displayName": "Pontualidade por companhia (10.000+ voos)",
+      "config": {
+        "source": "SELECT\n  nome_companhia,\n  COUNT(*) AS voos,\n  ROUND(100.0 * SUM(CASE WHEN voo_cancelado THEN 1 ELSE 0 END) / COUNT(*), 2) AS pct_cancelados,\n  ROUND(100.0 * try_divide(SUM(CASE WHEN partida_pontual THEN 1 ELSE 0 END),\n                           SUM(CASE WHEN partida_pontual IS NOT NULL THEN 1 ELSE 0 END)), 2) AS pct_pontuais,\n  ROUND(AVG(atraso_partida_min), 2) AS atraso_medio_min\nFROM voebem.gold.obt_voos GROUP BY 1 HAVING COUNT(*) >= 10000 ORDER BY pct_pontuais DESC",
+        "measures": [
+          {
+            "name": "voos",
+            "expr": "SUM(voos)",
+            "displayName": "Voos"
+          },
+          {
+            "name": "pct_pontuais",
+            "expr": "AVG(pct_pontuais)",
+            "displayName": "Partidas pontuais (%)"
+          },
+          {
+            "name": "pct_cancelados",
+            "expr": "AVG(pct_cancelados)",
+            "displayName": "Cancelados (%)"
+          },
+          {
+            "name": "atraso_medio_min",
+            "expr": "AVG(atraso_medio_min)",
+            "displayName": "Atraso medio (min)"
+          }
+        ],
+        "version": "1.1",
+        "comment": "P3 - pontualidade x cancelamento por companhia, controle de porte com corte de 10.000 voos.",
+        "dimensions": [
+          {
+            "name": "nome_companhia",
+            "expr": "nome_companhia",
+            "displayName": "Companhia"
+          }
+        ]
+      }
+    },
+    {
+      "name": "rotas_atraso",
+      "displayName": "Piores rotas domésticas (2.000+ voos)",
+      "config": {
+        "source": "SELECT\n  rota_municipios,\n  rota_icao,\n  COUNT(*) AS voos,\n  ROUND(AVG(atraso_partida_min), 2) AS atraso_medio_min,\n  ROUND(100.0 * try_divide(SUM(CASE WHEN partida_pontual = false THEN 1 ELSE 0 END),\n                           SUM(CASE WHEN partida_pontual IS NOT NULL THEN 1 ELSE 0 END)), 2) AS pct_atrasados\nFROM voebem.gold.obt_voos WHERE escopo_voo = 'Domestico' GROUP BY 1, 2 HAVING COUNT(*) >= 2000 ORDER BY atraso_medio_min DESC LIMIT 10",
+        "measures": [
+          {
+            "name": "voos",
+            "expr": "SUM(voos)",
+            "displayName": "Voos"
+          },
+          {
+            "name": "atraso_medio_min",
+            "expr": "AVG(atraso_medio_min)",
+            "displayName": "Atraso medio (min)"
+          },
+          {
+            "name": "pct_atrasados",
+            "expr": "AVG(pct_atrasados)",
+            "displayName": "Atraso na partida (%)"
+          }
+        ],
+        "version": "1.1",
+        "comment": "P1b - piores rotas domesticas por atraso medio de partida, corte de 2.000 voos.",
+        "dimensions": [
+          {
+            "name": "rota_municipios",
+            "expr": "rota_municipios",
+            "displayName": "Rota"
+          },
+          {
+            "name": "rota_icao",
+            "expr": "rota_icao",
+            "displayName": "Rota (ICAO)"
+          }
+        ]
+      }
+    },
+    {
+      "name": "recuperacao_companhias",
+      "displayName": "Recuperação de atraso por companhia (10.000+ voos)",
+      "config": {
+        "source": "SELECT\n  nome_companhia,\n  COUNT(*) AS voos,\n  ROUND(AVG(atraso_partida_min), 2) AS atraso_saida_min,\n  ROUND(AVG(atraso_chegada_min), 2) AS atraso_chegada_min,\n  ROUND(AVG(minutos_recuperados), 2) AS recuperados_medio_min\nFROM voebem.gold.obt_voos WHERE minutos_recuperados IS NOT NULL GROUP BY 1 HAVING COUNT(*) >= 10000 ORDER BY recuperados_medio_min DESC",
+        "measures": [
+          {
+            "name": "voos",
+            "expr": "SUM(voos)",
+            "displayName": "Voos"
+          },
+          {
+            "name": "atraso_saida_min",
+            "expr": "AVG(atraso_saida_min)",
+            "displayName": "Atraso de saida (min)"
+          },
+          {
+            "name": "atraso_chegada_min",
+            "expr": "AVG(atraso_chegada_min)",
+            "displayName": "Atraso de chegada (min)"
+          },
+          {
+            "name": "recuperados_medio_min",
+            "expr": "AVG(recuperados_medio_min)",
+            "displayName": "Minutos recuperados em voo"
+          }
+        ],
+        "version": "1.1",
+        "comment": "P5 - quanto atraso de saida cada companhia recupera em voo, corte de 10.000 voos com metrica.",
+        "dimensions": [
+          {
+            "name": "nome_companhia",
+            "expr": "nome_companhia",
+            "displayName": "Companhia"
+          }
+        ]
+      }
+    },
+    {
+      "name": "atraso_por_hora",
+      "displayName": "Atraso por hora do dia",
+      "config": {
+        "source": "SELECT\n  hora_partida_prevista AS hora,\n  COUNT(*) AS voos,\n  ROUND(AVG(atraso_partida_min), 2) AS atraso_medio_min,\n  ROUND(100.0 * try_divide(SUM(CASE WHEN partida_pontual = false THEN 1 ELSE 0 END),\n                           SUM(CASE WHEN partida_pontual IS NOT NULL THEN 1 ELSE 0 END)), 2) AS pct_atrasados\nFROM voebem.gold.obt_voos WHERE hora_partida_prevista IS NOT NULL GROUP BY 1 ORDER BY 1",
+        "measures": [
+          {
+            "name": "voos",
+            "expr": "SUM(voos)",
+            "displayName": "Voos"
+          },
+          {
+            "name": "atraso_medio_min",
+            "expr": "AVG(atraso_medio_min)",
+            "displayName": "Atraso medio (min)"
+          },
+          {
+            "name": "pct_atrasados",
+            "expr": "AVG(pct_atrasados)",
+            "displayName": "Atraso na partida (%)"
+          }
+        ],
+        "version": "1.1",
+        "comment": "P2 - atraso medio de partida por hora prevista do dia, efeito cascata.",
+        "dimensions": [
+          {
+            "name": "hora",
+            "expr": "hora",
+            "displayName": "Hora prevista de partida"
+          }
+        ]
+      }
+    },
+    {
+      "name": "escopo_comparativo",
+      "displayName": "Doméstico x internacional",
+      "config": {
+        "source": "SELECT\n  escopo_voo,\n  COUNT(*) AS voos,\n  ROUND(AVG(atraso_partida_min), 2) AS atraso_medio_min,\n  ROUND(100.0 * try_divide(SUM(CASE WHEN partida_pontual = false THEN 1 ELSE 0 END),\n                           SUM(CASE WHEN partida_pontual IS NOT NULL THEN 1 ELSE 0 END)), 2) AS pct_atrasados\nFROM voebem.gold.obt_voos GROUP BY 1 ORDER BY voos DESC",
+        "measures": [
+          {
+            "name": "voos",
+            "expr": "SUM(voos)",
+            "displayName": "Voos"
+          },
+          {
+            "name": "atraso_medio_min",
+            "expr": "AVG(atraso_medio_min)",
+            "displayName": "Atraso medio (min)"
+          },
+          {
+            "name": "pct_atrasados",
+            "expr": "AVG(pct_atrasados)",
+            "displayName": "Atraso na partida (%)"
+          }
+        ],
+        "version": "1.1",
+        "comment": "P4 - comparacao do atraso de partida entre voos domesticos e internacionais.",
+        "dimensions": [
+          {
+            "name": "escopo_voo",
+            "expr": "escopo_voo",
+            "displayName": "Escopo do voo"
+          }
+        ]
+      }
+    }
+  ],
+  "pages": [
+    {
+      "name": "9a7934bd",
+      "displayName": "Page 1",
+      "layout": [
+        {
+          "widget": {
+            "name": "kpi_voos",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "kpis_voos",
+                  "fields": [
+                    {
+                      "name": "measure(voos)",
+                      "expression": "MEASURE(`voos`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Voos no período"
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "measure(voos)",
+                  "rowNumber": 0
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 3,
+            "height": 5
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi_partida_pontual",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "kpis_voos",
+                  "fields": [
+                    {
+                      "name": "measure(pct_partida_pontual)",
+                      "expression": "MEASURE(`pct_partida_pontual`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": {
+                  "value": "Partida pontual (≤ 15 min) — %",
+                  "fields": []
+                }
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "measure(pct_partida_pontual)",
+                  "rowNumber": 0
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            },
+            "specExtensions": {
+              "widgetBackgroundColor": {
+                "light": "#FFFFFF",
+                "dark": "#0E3A56"
+              },
+              "widgetBorderColor": {
+                "light": "#8BE4F7",
+                "dark": "#38E1FF"
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 0,
+            "width": 3,
+            "height": 5
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi_cancelados",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "kpis_voos",
+                  "fields": [
+                    {
+                      "name": "measure(pct_cancelados)",
+                      "expression": "MEASURE(`pct_cancelados`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Voos cancelados — %"
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "measure(pct_cancelados)",
+                  "rowNumber": 0
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 0,
+            "width": 3,
+            "height": 5
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi_atraso_medio",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "kpis_voos",
+                  "fields": [
+                    {
+                      "name": "measure(atraso_medio_partida_min)",
+                      "expression": "MEASURE(`atraso_medio_partida_min`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Atraso médio de partida (min)"
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "measure(atraso_medio_partida_min)",
+                  "rowNumber": 0
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 9,
+            "y": 0,
+            "width": 3,
+            "height": 5
+          }
+        },
+        {
+          "widget": {
+            "name": "chart_aeroportos_atraso",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "aeroportos_atraso",
+                  "fields": [
+                    {
+                      "name": "nome_aeroporto_origem",
+                      "expression": "`nome_aeroporto_origem`"
+                    },
+                    {
+                      "name": "measure(pct_atrasados)",
+                      "expression": "MEASURE(`pct_atrasados`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Aeroportos com maior % de atraso na partida (≥ 5.000 voos)"
+              },
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "nome_aeroporto_origem",
+                  "displayName": "nome_aeroporto_origem",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "measure(pct_atrasados)",
+                  "displayName": "pct_atrasados",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "nome_aeroporto_origem",
+                  "displayName": "nome_aeroporto_origem",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 5,
+            "width": 8,
+            "height": 10
+          }
+        },
+        {
+          "widget": {
+            "name": "chart_escopo",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "escopo_comparativo",
+                  "fields": [
+                    {
+                      "name": "escopo_voo",
+                      "expression": "`escopo_voo`"
+                    },
+                    {
+                      "name": "measure(atraso_medio_min)",
+                      "expression": "MEASURE(`atraso_medio_min`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Atraso médio de partida: doméstico x internacional"
+              },
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "escopo_voo",
+                  "displayName": "escopo_voo",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "measure(atraso_medio_min)",
+                  "displayName": "atraso_medio_min",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "escopo_voo",
+                  "displayName": "escopo_voo",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 8,
+            "y": 5,
+            "width": 4,
+            "height": 10
+          }
+        },
+        {
+          "widget": {
+            "name": "chart_hora",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "atraso_por_hora",
+                  "fields": [
+                    {
+                      "name": "hora",
+                      "expression": "`hora`"
+                    },
+                    {
+                      "name": "measure(atraso_medio_min)",
+                      "expression": "MEASURE(`atraso_medio_min`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Atraso médio por hora prevista de partida (efeito cascata)"
+              },
+              "version": 3,
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "hora",
+                  "displayName": "hora",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "y": {
+                  "fieldName": "measure(atraso_medio_min)",
+                  "displayName": "atraso_medio_min",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 15,
+            "width": 12,
+            "height": 10
+          }
+        },
+        {
+          "widget": {
+            "name": "chart_rotas_atraso",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "rotas_atraso",
+                  "fields": [
+                    {
+                      "name": "rota_municipios",
+                      "expression": "`rota_municipios`"
+                    },
+                    {
+                      "name": "measure(atraso_medio_min)",
+                      "expression": "MEASURE(`atraso_medio_min`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Piores rotas domésticas por atraso médio de partida (≥ 2.000 voos)"
+              },
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "rota_municipios",
+                  "displayName": "rota_municipios",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "measure(atraso_medio_min)",
+                  "displayName": "atraso_medio_min",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "rota_municipios",
+                  "displayName": "rota_municipios",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 25,
+            "width": 6,
+            "height": 10
+          }
+        },
+        {
+          "widget": {
+            "name": "chart_rotas_sem_recuperacao",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "rotas_sem_recuperacao",
+                  "fields": [
+                    {
+                      "name": "rota_municipios",
+                      "expression": "`rota_municipios`"
+                    },
+                    {
+                      "name": "measure(recuperados_medio_min)",
+                      "expression": "MEASURE(`recuperados_medio_min`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Rotas sem recuperação de atraso (perdem tempo no ar)"
+              },
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "rota_municipios",
+                  "displayName": "rota_municipios",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "measure(recuperados_medio_min)",
+                  "displayName": "recuperados_medio_min",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "rota_municipios",
+                  "displayName": "rota_municipios",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 25,
+            "width": 6,
+            "height": 10
+          }
+        },
+        {
+          "widget": {
+            "name": "chart_companhias_recuperacao",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "recuperacao_companhias",
+                  "fields": [
+                    {
+                      "name": "nome_companhia",
+                      "expression": "`nome_companhia`"
+                    },
+                    {
+                      "name": "measure(recuperados_medio_min)",
+                      "expression": "MEASURE(`recuperados_medio_min`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Minutos recuperados em voo por companhia (≥ 10.000 voos)"
+              },
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "nome_companhia",
+                  "displayName": "nome_companhia",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "measure(recuperados_medio_min)",
+                  "displayName": "recuperados_medio_min",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "nome_companhia",
+                  "displayName": "nome_companhia",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 35,
+            "width": 6,
+            "height": 10
+          }
+        },
+        {
+          "widget": {
+            "name": "tabela_companhias",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "companhias_pontualidade",
+                  "fields": [
+                    {
+                      "name": "nome_companhia",
+                      "expression": "`nome_companhia`"
+                    },
+                    {
+                      "name": "measure(voos)",
+                      "expression": "MEASURE(`voos`)"
+                    },
+                    {
+                      "name": "measure(pct_pontuais)",
+                      "expression": "MEASURE(`pct_pontuais`)"
+                    },
+                    {
+                      "name": "measure(pct_cancelados)",
+                      "expression": "MEASURE(`pct_cancelados`)"
+                    },
+                    {
+                      "name": "measure(atraso_medio_min)",
+                      "expression": "MEASURE(`atraso_medio_min`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Pontualidade x cancelamento por companhia (≥ 10.000 voos)"
+              },
+              "version": 2,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "nome_companhia"
+                  },
+                  {
+                    "fieldName": "measure(voos)"
+                  },
+                  {
+                    "fieldName": "measure(pct_pontuais)"
+                  },
+                  {
+                    "fieldName": "measure(pct_cancelados)"
+                  },
+                  {
+                    "fieldName": "measure(atraso_medio_min)"
+                  }
+                ]
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 35,
+            "width": 6,
+            "height": 10
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layoutVersion": "GRID_V1"
+    }
+  ],
+  "uiSettings": {
+    "theme": {
+      "canvasBackgroundColor": {
+        "light": "#EDF2F9",
+        "dark": "#0A0F1E"
+      },
+      "widgetBackgroundColor": {
+        "light": "#FCFDFF",
+        "dark": "#101A2C"
+      },
+      "widgetBorderColor": {
+        "light": "#FCFDFF",
+        "dark": "#22354F"
+      },
+      "selectionColor": {
+        "light": "#0E7490",
+        "dark": "#38E1FF"
+      },
+      "visualizationColors": [
+        "#22D3EE",
+        "#818CF8",
+        "#F472B6",
+        "#34D399",
+        "#FBBF24"
+      ],
+      "widgetHeaderAlignment": "ALIGNMENT_UNSPECIFIED",
+      "widgetPadding": 12,
+      "widgetCornerRadius": 12,
+      "widgetShadow": 20,
+      "fontSettings": {
+        "base": {
+          "fontFamily": "Space Grotesk",
+          "fontColor": {
+            "light": "#101826",
+            "dark": "#E6EDF7"
+          },
+          "fontSize": 13
+        },
+        "widgetTitle": {
+          "fontFamily": "Orbitron",
+          "fontColor": {
+            "light": "#0B3B54",
+            "dark": "#7DEBFF"
+          },
+          "fontWeight": 600
+        },
+        "fieldValue": {
+          "fontSize": 12
+        }
+      },
+      "gridLineColor": {
+        "light": "#D6DEE9",
+        "dark": "#1C2A42"
+      },
+      "axisLineColor": {
+        "light": "#B9C6D8",
+        "dark": "#2E3F5C"
+      }
+    },
+    "applyModeEnabled": false
+  }
+}
